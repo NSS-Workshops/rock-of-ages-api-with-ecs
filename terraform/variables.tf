@@ -6,9 +6,9 @@ variable "aws_region" {
 }
 
 variable "image_storage_bucket" {
-  description = "Storage bucket for rock images (must be globally unique)"
+  description = "Storage bucket for rock images created in backend-bootstrap project"
   type        = string
-  default     = "<your-unique-storage-bucket-name>" 
+  default     = "<your-storage-bucket-name>" 
 }
 
 variable "db_username" {
