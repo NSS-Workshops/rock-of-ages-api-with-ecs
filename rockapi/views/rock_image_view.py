@@ -81,6 +81,60 @@ class RockImageView(ViewSet):
                 {'message': str(ex)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+    @action(detail=True, methods=['get'], url_path='download-url')
+    def get_download_url(self, request, pk=None):
+        """
+        Generate a presigned GET URL for a thumbnail image.
+
+        Query params:
+            size: small | medium | large (default: medium)
+
+        Returns a short-lived URL the client can use to fetch the image directly from S3.
+        """
+        try:
+            rock_image = RockImage.objects.get(pk=pk)
+
+            size = request.query_params.get('size', 'medium')
+            url_map = {
+                'small': rock_image.thumbnail_small_url,
+                'medium': rock_image.thumbnail_medium_url,
+                'large': rock_image.thumbnail_large_url,
+            }
+
+            if size not in url_map:
+                return Response(
+                    {'message': 'size must be small, medium, or large'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            stored_url = url_map[size]
+            if not stored_url:
+                return Response(
+                    {'message': f'{size} thumbnail is not ready yet'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Extract the S3 key from the stored URL
+            # URL format: https://<bucket>.s3.amazonaws.com/<file_key>
+            file_key = stored_url.split('.amazonaws.com/', 1)[-1]
+
+            s3_service = S3Service()
+            presigned_url = s3_service.generate_presigned_download_url(file_key)
+
+            return Response({'presigned_url': presigned_url}, status=status.HTTP_200_OK)
+
+        except RockImage.DoesNotExist:
+            return Response(
+                {'message': 'Image not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as ex:
+            return Response(
+                {'message': str(ex)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
     @action(detail=True, methods=['post'], url_path='confirm-upload')
     def confirm_upload(self, request, pk=None):
